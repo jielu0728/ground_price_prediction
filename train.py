@@ -18,7 +18,27 @@ df_test_goto = pd.read_csv('./data/test_goto.tsv', sep='\t')
 df_test = df_test_goto.merge(df_test_genba, on='pj_no', how='left')
 df_test.drop('id', axis=1, inplace=True)
 
-categorical_features = list(df_description[df_description['データ型'] != '数値']['項目名'])
+# preprocessing
+def fill_city_name(name):
+    if '市' not in name and '郡' not in name:
+        name = '市' + name
+    return name
+
+def split_address(df):
+    df['jukyo'] = df['jukyo'].str.slice(start=3).str.replace(r'[ヶｹ]', 'ケ')
+    df['jukyo'] = df['jukyo'].apply(fill_city_name)
+    city_split = df['jukyo'].str.split(r'[市郡]', n=1, expand=True)
+    df['city'] = city_split[0]
+    street_split = city_split[1].str.split(r'[町区]', n=1, expand=True)
+    df['street'] = street_split[0]
+    df['address_detail'] = street_split[1].str.strip().replace('', None)
+    return df
+
+df_train = split_address(df_train)
+df_test = split_address(df_test)
+
+# train
+categorical_features = list(df_description[df_description['データ型'] != '数値']['項目名']) + ['city', 'street', 'address_detail']
 continue_features = list(df_description[df_description['データ型'] == '数値']['項目名'])
 objective = 'keiyaku_pr'
 
@@ -44,16 +64,16 @@ for train_idx, valid_idx in splitter.split(df_train):
     train, valid = df_train.iloc[train_idx], df_train.iloc[valid_idx]
     X_train, y_train = train.drop('keiyaku_pr', axis=1), np.log(train['keiyaku_pr']+1)
     X_valid, y_valid = valid.drop('keiyaku_pr', axis=1), np.log(valid['keiyaku_pr']+1)
-    regressor = lgb.LGBMRegressor(n_estimators=20000, silent=False, random_state=28, objective='MAPE')
+    regressor = lgb.LGBMRegressor(n_estimators=20000, silent=False, random_state=28)
     regressor.fit(X_train, y_train, eval_set=(X_valid, y_valid), early_stopping_rounds=500)
     prediction_list.append(regressor.predict(df_test[df_train.drop(objective, axis=1).columns]))
-    best_scores.append(regressor.best_score_['valid_0']['mape'])
+    best_scores.append(regressor.best_score_['valid_0']['l2'])
 
-print("5-fold cv mean mape %.8f" % (np.mean(best_scores)*100))
+print("5-fold cv mean l2 %.8f" % np.mean(best_scores))
 
 df_submission = pd.read_csv('./data/sample_submit.tsv', sep='\t', names=['id', 'pred'])
 
 df_submission['pred'] = np.exp(np.mean(prediction_list, axis=0))-1
 df_submission.to_csv('submission.tsv', sep='\t', header=None, index=False)
 
-# 0.004522605
+# 0.01334672
