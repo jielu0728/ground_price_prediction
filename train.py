@@ -42,18 +42,18 @@ prediction_list = []
 best_scores = []
 for train_idx, valid_idx in splitter.split(df_train):
     train, valid = df_train.iloc[train_idx], df_train.iloc[valid_idx]
-    X_train, y_train = train.drop('keiyaku_pr', axis=1), train['keiyaku_pr']
-    X_valid, y_valid = valid.drop('keiyaku_pr', axis=1), valid['keiyaku_pr']
+    X_train, y_train = train.drop('keiyaku_pr', axis=1), np.log(train['keiyaku_pr']+1)
+    X_valid, y_valid = valid.drop('keiyaku_pr', axis=1), np.log(valid['keiyaku_pr']+1)
     regressor = lgb.LGBMRegressor(n_estimators=20000, silent=False, random_state=28, objective='MAPE')
     regressor.fit(X_train, y_train, eval_set=(X_valid, y_valid), early_stopping_rounds=500)
     prediction_list.append(regressor.predict(df_test[df_train.drop(objective, axis=1).columns]))
     best_scores.append(regressor.best_score_['valid_0']['mape'])
 
-print("5-fold cv mean mape %.8f" % np.mean(best_scores))
+print("5-fold cv mean mape %.8f" % (np.mean(best_scores)*100))
 
 df_submission = pd.read_csv('./data/sample_submit.tsv', sep='\t', names=['id', 'pred'])
 
-df_submission['pred'] = np.mean(prediction_list, axis=0)
+df_submission['pred'] = np.exp(np.mean(prediction_list, axis=0))-1
 df_submission.to_csv('submission.tsv', sep='\t', header=None, index=False)
 
-# 0.08372451
+# 0.004522605
