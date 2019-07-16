@@ -37,8 +37,13 @@ def split_address(df):
 df_train = split_address(df_train)
 df_test = split_address(df_test)
 
+df_train.drop(['kaoku_um'], axis=1, inplace=True)
+df_test.drop(['kaoku_um'], axis=1, inplace=True)
+
 # train
 categorical_features = list(df_description[df_description['データ型'] != '数値']['項目名']) + ['city', 'street', 'address_detail']
+for col in ['kaoku_um']:
+    categorical_features.remove(col)
 continue_features = list(df_description[df_description['データ型'] == '数値']['項目名'])
 objective = 'keiyaku_pr'
 
@@ -76,4 +81,4 @@ df_submission = pd.read_csv('./data/sample_submit.tsv', sep='\t', names=['id', '
 df_submission['pred'] = np.exp(np.mean(prediction_list, axis=0))-1
 df_submission.to_csv('submission.tsv', sep='\t', header=None, index=False)
 
-# 0.01334672
+# 0.01333821
