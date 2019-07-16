@@ -69,8 +69,9 @@ for train_idx, valid_idx in splitter.split(df_train):
     train, valid = df_train.iloc[train_idx], df_train.iloc[valid_idx]
     X_train, y_train = train.drop('keiyaku_pr', axis=1), np.log(train['keiyaku_pr']+1)
     X_valid, y_valid = valid.drop('keiyaku_pr', axis=1), np.log(valid['keiyaku_pr']+1)
-    regressor = lgb.LGBMRegressor(n_estimators=20000, silent=False, random_state=28)
-    regressor.fit(X_train, y_train, eval_set=(X_valid, y_valid), early_stopping_rounds=500)
+    regressor = lgb.LGBMRegressor(n_estimators=20000, learning_rate=0.01, silent=False, random_state=28)
+    regressor.fit(X_train, y_train, eval_set=(X_valid, y_valid), early_stopping_rounds=500,
+                  categorical_feature=categorical_features)
     prediction_list.append(regressor.predict(df_test[df_train.drop(objective, axis=1).columns]))
     best_scores.append(regressor.best_score_['valid_0']['l2'])
 
@@ -81,4 +82,4 @@ df_submission = pd.read_csv('./data/sample_submit.tsv', sep='\t', names=['id', '
 df_submission['pred'] = np.exp(np.mean(prediction_list, axis=0))-1
 df_submission.to_csv('submission.tsv', sep='\t', header=None, index=False)
 
-# 0.01333821
+# 0.01251584
